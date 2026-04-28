@@ -81,6 +81,35 @@ switch ($cmd) {
         exit 0
     }
 
+    'default' {
+        if (-not $rest -or $rest.Count -lt 1) { throw "claude-switcher: 'default' requires <name> or --reset" }
+        if ($rest[0] -eq '--reset') {
+            Set-DefaultProfile -ProfilesRoot $root -Reset
+            Write-Output 'claude-switcher: default reset to personal (~\.claude)'
+        } else {
+            Set-DefaultProfile -ProfilesRoot $root -Name $rest[0]
+            Write-Output "claude-switcher: default set to '$($rest[0])'"
+        }
+        exit 0
+    }
+
+    'init' {
+        if (-not $rest -or $rest.Count -lt 1) { throw "claude-switcher: 'init' requires <name>" }
+        $force = $rest -contains '--force'
+        $name  = $rest | Where-Object { $_ -ne '--force' } | Select-Object -First 1
+        if (-not $name) { throw "claude-switcher: 'init' requires <name>" }
+
+        $target = Join-Path (Get-Location).Path 'claude-account.json'
+        if ((Test-Path -LiteralPath $target) -and -not $force) {
+            throw "claude-switcher: $target already exists (use --force to overwrite)"
+        }
+        $obj  = [pscustomobject]@{ account = $name }
+        $json = $obj | ConvertTo-Json -Depth 4
+        Set-Content -LiteralPath $target -Value $json -Encoding utf8NoBOM
+        Write-Output "claude-switcher: wrote $target"
+        exit 0
+    }
+
     default {
         [Console]::Error.WriteLine("claude-switcher: unknown subcommand '$cmd'. Run 'claude-switch help'.")
         exit 2

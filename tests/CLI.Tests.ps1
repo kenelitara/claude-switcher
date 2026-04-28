@@ -3,8 +3,13 @@ BeforeAll {
     function Invoke-Cli {
         param([string]$Root, [Alias('Args')][string[]]$CliArgs, [string]$Cwd = (Get-Location).Path)
         $env:CLAUDE_SWITCHER_ROOT = $Root
-        $out = & pwsh -NoProfile -File $script:cli @CliArgs 2>&1 | Out-String
-        $code = $LASTEXITCODE
+        Push-Location $Cwd
+        try {
+            $out = & pwsh -NoProfile -File $script:cli @CliArgs 2>&1 | Out-String
+            $code = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
         Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
         [PSCustomObject]@{ Output = $out; ExitCode = $code }
     }
@@ -64,5 +69,56 @@ Describe 'claude-switch where' {
         $r = Invoke-Cli -Root $script:root -Args @('where','ghost')
         $r.Output | Should -Match "not configured"
         $r.ExitCode | Should -Not -Be 0
+    }
+}
+
+Describe 'claude-switch default' {
+    BeforeEach {
+        $script:root = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid())
+        New-Item -ItemType Directory -Force -Path $script:root | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $script:root 'work') | Out-Null
+    }
+    AfterEach { if (Test-Path $script:root) { Remove-Item -Recurse -Force $script:root } }
+
+    It 'sets the default profile' {
+        Invoke-Cli -Root $script:root -Args @('default','work') | Out-Null
+        $cfg = Get-Content -Raw (Join-Path $script:root '.switcher.json') | ConvertFrom-Json
+        $cfg.default | Should -Be 'work'
+    }
+    It '--reset clears it' {
+        Invoke-Cli -Root $script:root -Args @('default','work') | Out-Null
+        Invoke-Cli -Root $script:root -Args @('default','--reset') | Out-Null
+        $cfg = Get-Content -Raw (Join-Path $script:root '.switcher.json') | ConvertFrom-Json
+        $cfg.default | Should -BeNullOrEmpty
+    }
+    It 'rejects unknown profile' {
+        $out = Invoke-Cli -Root $script:root -Args @('default','ghost')
+        $out.Output | Should -Match 'not configured'
+    }
+}
+
+Describe 'claude-switch init' {
+    BeforeEach {
+        $script:root = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid())
+        $script:cwd  = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid())
+        New-Item -ItemType Directory -Force -Path $script:root, $script:cwd | Out-Null
+    }
+    AfterEach {
+        if (Test-Path $script:root) { Remove-Item -Recurse -Force $script:root }
+        if (Test-Path $script:cwd)  { Remove-Item -Recurse -Force $script:cwd }
+    }
+
+    It 'writes a claude-account.json into the cwd' {
+        Invoke-Cli -Root $script:root -Args @('init','work') -Cwd $script:cwd | Out-Null
+        $f = Join-Path $script:cwd 'claude-account.json'
+        (Get-Content -Raw $f | ConvertFrom-Json).account | Should -Be 'work'
+    }
+
+    It 'refuses to overwrite without --force' {
+        $f = Join-Path $script:cwd 'claude-account.json'
+        Set-Content -LiteralPath $f -Encoding utf8NoBOM -Value '{ "account": "old" }'
+        $out = Invoke-Cli -Root $script:root -Args @('init','new') -Cwd $script:cwd
+        $out.Output | Should -Match 'already exists'
+        (Get-Content -Raw $f | ConvertFrom-Json).account | Should -Be 'old'
     }
 }
