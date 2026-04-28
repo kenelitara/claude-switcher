@@ -31,4 +31,48 @@ function Test-ProfileExists {
     Test-Path -LiteralPath (Get-ProfileDir -ProfilesRoot $ProfilesRoot -Name $Name) -PathType Container
 }
 
-Export-ModuleMember -Function Get-Profiles, Get-ProfileDir, Test-ProfileExists
+function Get-DefaultProfile {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ProfilesRoot)
+
+    Import-Module (Join-Path $PSScriptRoot 'Schema.psm1') -Force
+    $cfg = Read-SwitcherConfig -Path (Join-Path $ProfilesRoot '.switcher.json')
+    return $cfg.default
+}
+
+function Set-DefaultProfile {
+    [CmdletBinding(DefaultParameterSetName='Set')]
+    param(
+        [Parameter(Mandatory)][string]$ProfilesRoot,
+        [Parameter(Mandatory, ParameterSetName='Set')][string]$Name,
+        [Parameter(Mandatory, ParameterSetName='Reset')][switch]$Reset
+    )
+
+    Import-Module (Join-Path $PSScriptRoot 'Schema.psm1') -Force
+    $path = Join-Path $ProfilesRoot '.switcher.json'
+
+    if ($Reset) {
+        Write-SwitcherConfig -Path $path -Default $null
+        return
+    }
+
+    if (-not (Test-ProfileExists -ProfilesRoot $ProfilesRoot -Name $Name)) {
+        throw "claude-switcher: account '$Name' is not configured. Run: claude-switch add $Name"
+    }
+    Write-SwitcherConfig -Path $path -Default $Name
+}
+
+function Find-ClaudeApplication {
+    Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+
+function Get-RealClaudeBinary {
+    [CmdletBinding()] param()
+    $cmd = Find-ClaudeApplication
+    if (-not $cmd) {
+        throw "claude-switcher: real 'claude' executable not found on PATH"
+    }
+    return $cmd.Source
+}
+
+Export-ModuleMember -Function Get-Profiles, Get-ProfileDir, Test-ProfileExists, Get-DefaultProfile, Set-DefaultProfile, Get-RealClaudeBinary
