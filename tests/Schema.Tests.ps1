@@ -51,4 +51,9 @@ Describe 'Read-AccountConfig' {
         Set-Content -LiteralPath $f -Encoding utf8NoBOM -Value '{ "account": 5 }'
         { Read-AccountConfig -Path $f } | Should -Throw '*non-empty "account" field*'
     }
+
+    It 'throws on missing file' {
+        { Read-AccountConfig -Path (Join-Path $script:tmp 'does-not-exist.json') } |
+            Should -Throw '*does-not-exist.json*'
+    }
 }
