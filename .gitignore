@@ -1,0 +1,13 @@
+# Pester output
+testResults.xml
+
+# PowerShell module cache
+*.psd1.bak
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
