@@ -74,7 +74,7 @@ to wipe credentials manually.
 After install:
 
 1. `claude` outside any project — uses personal. Confirm with `claude-switch current`
-   ("personal — no claude-account.json").
+   ("personal (~\.claude) — no claude-account.json").
 2. `cd` into a folder with `{ "account": "work" }` — `claude-switch current` prints
    "work — from .\claude-account.json". `claude` runs against the work creds.
 3. Verify `~\.claude\.credentials.json` and `~\.claude-accounts\work\.credentials.json`
