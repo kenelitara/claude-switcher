@@ -110,6 +110,61 @@ switch ($cmd) {
         exit 0
     }
 
+    'add' {
+        if (-not $rest) { throw "claude-switcher: 'add' requires <name>" }
+        $skipPrompt = $rest -contains '--no-launch-prompt'
+        $force      = $rest -contains '--force'
+        $name       = $rest | Where-Object { $_ -notlike '--*' } | Select-Object -First 1
+        if (-not $name) { throw "claude-switcher: 'add' requires <name>" }
+
+        $dir = Get-ProfileDir -ProfilesRoot $root -Name $name
+        if ((Test-Path -LiteralPath $dir) -and -not $force) {
+            throw "claude-switcher: profile '$name' already exists at $dir (use --force to reuse)"
+        }
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+
+        if (-not $skipPrompt) {
+            Write-Output "claude-switcher: profile '$name' created at $dir."
+            Write-Output "Launching 'claude' so you can /login. Press any key to continue, Ctrl+C to skip."
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        }
+
+        $real = Get-RealClaudeBinary
+        $env:CLAUDE_CONFIG_DIR = $dir
+        try {
+            & $real
+        } finally {
+            Remove-Item env:CLAUDE_CONFIG_DIR -ErrorAction SilentlyContinue
+        }
+        exit 0
+    }
+
+    'remove' {
+        if (-not $rest) { throw "claude-switcher: 'remove' requires <name>" }
+        $force = $rest -contains '--force'
+        $name  = $rest | Where-Object { $_ -notlike '--*' } | Select-Object -First 1
+        if (-not $name) { throw "claude-switcher: 'remove' requires <name>" }
+        if (-not (Test-ProfileExists -ProfilesRoot $root -Name $name)) {
+            throw "claude-switcher: account '$name' is not configured"
+        }
+        $default = Get-DefaultProfile -ProfilesRoot $root
+        if ($default -eq $name -and -not $force) {
+            throw "claude-switcher: '$name' is the configured default. Run 'claude-switch default --reset' first, or pass --force"
+        }
+        if (-not $force) {
+            Write-Output "claude-switcher: about to delete $(Get-ProfileDir -ProfilesRoot $root -Name $name). Press 'y' to confirm."
+            $key = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            if ($key.Character -ne 'y' -and $key.Character -ne 'Y') {
+                Write-Output 'cancelled'
+                exit 1
+            }
+        }
+        Remove-Item -Recurse -Force (Get-ProfileDir -ProfilesRoot $root -Name $name)
+        if ($default -eq $name) { Set-DefaultProfile -ProfilesRoot $root -Reset }
+        Write-Output "claude-switcher: removed '$name'"
+        exit 0
+    }
+
     default {
         [Console]::Error.WriteLine("claude-switcher: unknown subcommand '$cmd'. Run 'claude-switch help'.")
         exit 2

@@ -122,3 +122,65 @@ Describe 'claude-switch init' {
         (Get-Content -Raw $f | ConvertFrom-Json).account | Should -Be 'old'
     }
 }
+
+Describe 'claude-switch add' {
+    BeforeEach {
+        $script:root = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid())
+        $script:fakeBin = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid())
+        New-Item -ItemType Directory -Force -Path $script:root, $script:fakeBin | Out-Null
+
+        # Fake claude.cmd: writes a marker file into $env:CLAUDE_CONFIG_DIR so we can
+        # observe that the env var was set when the binary ran.
+        $fake = Join-Path $script:fakeBin 'claude.cmd'
+        Set-Content -LiteralPath $fake -Encoding ascii -Value @"
+@echo off
+echo fake-login > "%CLAUDE_CONFIG_DIR%\.credentials.json"
+"@
+        $script:savedPath = $env:PATH
+        $env:PATH = "$script:fakeBin;$env:PATH"
+    }
+    AfterEach {
+        $env:PATH = $script:savedPath
+        if (Test-Path $script:root) { Remove-Item -Recurse -Force $script:root }
+        if (Test-Path $script:fakeBin) { Remove-Item -Recurse -Force $script:fakeBin }
+    }
+
+    It 'creates the profile dir and runs claude with CLAUDE_CONFIG_DIR set' {
+        Invoke-Cli -Root $script:root -Args @('add','work','--no-launch-prompt') | Out-Null
+        $dir = Join-Path $script:root 'work'
+        Test-Path $dir | Should -BeTrue
+        Test-Path (Join-Path $dir '.credentials.json') | Should -BeTrue
+    }
+
+    It 'refuses to add an existing profile without --force' {
+        New-Item -ItemType Directory -Path (Join-Path $script:root 'work') | Out-Null
+        $out = Invoke-Cli -Root $script:root -Args @('add','work','--no-launch-prompt')
+        $out.Output | Should -Match 'already exists'
+    }
+}
+
+Describe 'claude-switch remove' {
+    BeforeEach {
+        $script:root = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid())
+        New-Item -ItemType Directory -Force -Path $script:root | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $script:root 'work') | Out-Null
+    }
+    AfterEach { if (Test-Path $script:root) { Remove-Item -Recurse -Force $script:root } }
+
+    It 'removes the profile when --force is passed' {
+        Invoke-Cli -Root $script:root -Args @('remove','work','--force') | Out-Null
+        Test-Path (Join-Path $script:root 'work') | Should -BeFalse
+    }
+
+    It 'refuses to remove an unknown profile' {
+        $out = Invoke-Cli -Root $script:root -Args @('remove','ghost','--force')
+        $out.Output | Should -Match 'not configured'
+    }
+
+    It 'refuses to remove the configured default without --force' {
+        Invoke-Cli -Root $script:root -Args @('default','work') | Out-Null
+        # No --force -> would prompt; the CLI must early-exit with an error in non-interactive contexts.
+        $out = Invoke-Cli -Root $script:root -Args @('remove','work')
+        $out.Output | Should -Match 'configured default'
+    }
+}
