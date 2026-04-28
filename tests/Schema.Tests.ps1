@@ -83,4 +83,9 @@ Describe 'SwitcherConfig round-trip' {
         $bytes = [System.IO.File]::ReadAllBytes($script:cfg)
         ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) | Should -BeFalse
     }
+
+    It 'throws on malformed JSON' {
+        Set-Content -LiteralPath $script:cfg -Encoding utf8NoBOM -Value '{ not json'
+        { Read-SwitcherConfig -Path $script:cfg } | Should -Throw '*not valid JSON*'
+    }
 }

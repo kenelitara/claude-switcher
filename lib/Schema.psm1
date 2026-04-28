@@ -31,7 +31,12 @@ function Read-SwitcherConfig {
         return [pscustomobject]@{ default = $null }
     }
 
-    $raw = Get-Content -LiteralPath $Path -Raw -Encoding utf8
+    try {
+        $raw = Get-Content -LiteralPath $Path -Raw -Encoding utf8 -ErrorAction Stop
+    } catch {
+        throw "claude-switcher: cannot read $($Path): $($_.Exception.Message)"
+    }
+
     try {
         $obj = $raw | ConvertFrom-Json -ErrorAction Stop
     } catch {
