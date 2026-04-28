@@ -1,3 +1,5 @@
+Import-Module (Join-Path $PSScriptRoot 'Schema.psm1')
+
 function Get-Profiles {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$ProfilesRoot)
@@ -35,7 +37,6 @@ function Get-DefaultProfile {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$ProfilesRoot)
 
-    Import-Module (Join-Path $PSScriptRoot 'Schema.psm1') -Force
     $cfg = Read-SwitcherConfig -Path (Join-Path $ProfilesRoot '.switcher.json')
     return $cfg.default
 }
@@ -48,7 +49,6 @@ function Set-DefaultProfile {
         [Parameter(Mandatory, ParameterSetName='Reset')][switch]$Reset
     )
 
-    Import-Module (Join-Path $PSScriptRoot 'Schema.psm1') -Force
     $path = Join-Path $ProfilesRoot '.switcher.json'
 
     if ($Reset) {
