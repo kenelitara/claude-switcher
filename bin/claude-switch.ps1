@@ -66,7 +66,7 @@ switch ($cmd) {
     }
 
     'where' {
-        if (-not $rest -or $rest.Count -ne 1) { throw "claude-switcher: 'where' requires a single profile name" }
+        if ($rest.Count -ne 1) { throw "claude-switcher: 'where' requires a single profile name" }
         $name = $rest[0]
         if (-not (Test-ProfileExists -ProfilesRoot $root -Name $name)) {
             throw "claude-switcher: account '$name' is not configured"
@@ -82,7 +82,7 @@ switch ($cmd) {
     }
 
     default {
-        Write-Error "claude-switcher: unknown subcommand '$cmd'. Run 'claude-switch help'."
+        [Console]::Error.WriteLine("claude-switcher: unknown subcommand '$cmd'. Run 'claude-switch help'.")
         exit 2
     }
 }

@@ -4,8 +4,9 @@ BeforeAll {
         param([string]$Root, [Alias('Args')][string[]]$CliArgs, [string]$Cwd = (Get-Location).Path)
         $env:CLAUDE_SWITCHER_ROOT = $Root
         $out = & pwsh -NoProfile -File $script:cli @CliArgs 2>&1 | Out-String
+        $code = $LASTEXITCODE
         Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
-        $out
+        [PSCustomObject]@{ Output = $out; ExitCode = $code }
     }
 }
 
@@ -17,10 +18,15 @@ Describe 'claude-switch help' {
     AfterEach { if (Test-Path $script:root) { Remove-Item -Recurse -Force $script:root } }
 
     It 'prints usage with no args' {
-        (Invoke-Cli -Root $script:root -Args @()) | Should -Match 'Usage:'
+        (Invoke-Cli -Root $script:root -Args @()).Output | Should -Match 'Usage:'
     }
     It 'prints usage for help' {
-        (Invoke-Cli -Root $script:root -Args @('help')) | Should -Match 'Usage:'
+        (Invoke-Cli -Root $script:root -Args @('help')).Output | Should -Match 'Usage:'
+    }
+    It 'exits 2 on unknown subcommand' {
+        $r = Invoke-Cli -Root $script:root -Args @('frobnicate')
+        $r.ExitCode | Should -Be 2
+        $r.Output | Should -Match 'unknown subcommand'
     }
 }
 
@@ -34,7 +40,7 @@ Describe 'claude-switch list' {
     AfterEach { if (Test-Path $script:root) { Remove-Item -Recurse -Force $script:root } }
 
     It 'lists personal first, then named profiles alphabetically' {
-        $out = Invoke-Cli -Root $script:root -Args @('list')
+        $out = (Invoke-Cli -Root $script:root -Args @('list')).Output
         $out | Should -Match 'personal \(fallback\)'
         $out | Should -Match 'client'
         $out | Should -Match 'work'
@@ -51,11 +57,12 @@ Describe 'claude-switch where' {
     AfterEach { if (Test-Path $script:root) { Remove-Item -Recurse -Force $script:root } }
 
     It 'prints the absolute profile dir' {
-        $out = (Invoke-Cli -Root $script:root -Args @('where','work')).Trim()
+        $out = (Invoke-Cli -Root $script:root -Args @('where','work')).Output.Trim()
         $out | Should -Be (Join-Path $script:root 'work')
     }
     It 'errors on unknown profile' {
-        $out = Invoke-Cli -Root $script:root -Args @('where','ghost')
-        $out | Should -Match "not configured"
+        $r = Invoke-Cli -Root $script:root -Args @('where','ghost')
+        $r.Output | Should -Match "not configured"
+        $r.ExitCode | Should -Not -Be 0
     }
 }
