@@ -44,6 +44,6 @@ New-Item -ItemType Directory -Force -Path $accountsRoot | Out-Null
 Write-Output ''
 Write-Output "claude-switcher installed to: $profilePath"
 Write-Output 'Next steps:'
-Write-Output '  1. Reload your profile in any open terminal:  . `$PROFILE'
+Write-Output '  1. Reload your profile in any open terminal:  . $PROFILE'
 Write-Output '  2. Add a non-personal account:                claude-switch add work'
 Write-Output '  3. Inside a project folder:                   claude-switch init work'
