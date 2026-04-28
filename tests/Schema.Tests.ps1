@@ -57,3 +57,30 @@ Describe 'Read-AccountConfig' {
             Should -Throw '*does-not-exist.json*'
     }
 }
+
+Describe 'SwitcherConfig round-trip' {
+    BeforeEach {
+        $script:cfg = Join-Path $script:tmp ([guid]::NewGuid().ToString() + '.json')
+    }
+
+    It 'returns a default-null object when file is missing' {
+        $r = Read-SwitcherConfig -Path $script:cfg
+        $r.default | Should -BeNullOrEmpty
+    }
+
+    It 'round-trips a default name' {
+        Write-SwitcherConfig -Path $script:cfg -Default 'work'
+        (Read-SwitcherConfig -Path $script:cfg).default | Should -Be 'work'
+    }
+
+    It 'round-trips a null default' {
+        Write-SwitcherConfig -Path $script:cfg -Default $null
+        (Read-SwitcherConfig -Path $script:cfg).default | Should -BeNullOrEmpty
+    }
+
+    It 'writes UTF-8 without BOM' {
+        Write-SwitcherConfig -Path $script:cfg -Default 'x'
+        $bytes = [System.IO.File]::ReadAllBytes($script:cfg)
+        ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) | Should -BeFalse
+    }
+}
