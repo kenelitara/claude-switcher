@@ -33,6 +33,19 @@ claude                            # uses the work account
 Outside any folder with `claude-account.json`, `claude` uses your personal account
 exactly like before.
 
+## Override the account for one invocation
+
+```powershell
+claude --profile work       # use the "work" account, ignoring claude-account.json
+claude --profile personal   # force your personal account (~\.claude)
+claude --profile none       # same as personal
+```
+
+`--profile` wins over everything else — the project file, the configured default, and even
+a preset `CLAUDE_CONFIG_DIR`. The flag is consumed by the shim and never reaches the real
+`claude` CLI. Because `personal` and `none` are reserved names, a profile literally named
+`personal` or `none` can't be selected this way.
+
 ## Subcommands
 
 | Command | What it does |
