@@ -160,4 +160,32 @@ echo args=%*^|env=%CLAUDE_CONFIG_DIR% > "$($script:probe)"
             Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
         }
     }
+
+    It 'drives --profile through the claude wrapper function' {
+        $env:CLAUDE_SWITCHER_ROOT = $script:root
+        Push-Location $script:cwd
+        try {
+            $snippet = Join-Path (Split-Path -Parent $script:shim) 'profile-snippet.ps1'
+            & pwsh -NoProfile -Command ". '$snippet'; claude --profile work --resume"
+        } finally {
+            Pop-Location
+            Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
+        }
+        $line = (Get-Content -Raw $script:probe).Trim()
+        $line | Should -Match 'args=--resume'
+        $line | Should -Match ([regex]::Escape("env=$(Join-Path $script:root 'work')"))
+    }
+
+    It 'accepts the --profile=<name> form through the shim' {
+        $env:CLAUDE_SWITCHER_ROOT = $script:root
+        Push-Location $script:cwd
+        try {
+            & pwsh -NoProfile -File $script:shim --profile=work
+        } finally {
+            Pop-Location
+            Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
+        }
+        $line = (Get-Content -Raw $script:probe).Trim()
+        $line | Should -Match ([regex]::Escape("env=$(Join-Path $script:root 'work')"))
+    }
 }
