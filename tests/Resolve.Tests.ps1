@@ -121,4 +121,17 @@ Describe 'Resolve-ProfileForCwd with -ExplicitProfile' {
         $r = Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root -ExplicitProfile 'personal'
         $r.Source | Should -Be 'explicit-personal'
     }
+
+    It 'beats a configured default' {
+        Set-DefaultProfile -ProfilesRoot $script:root -Name 'client'
+        $r = Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root -ExplicitProfile 'work'
+        $r.Source     | Should -Be 'explicit'
+        $r.ProfileDir | Should -Be (Join-Path $script:root 'work')
+    }
+
+    It 'forces personal past a preset CLAUDE_CONFIG_DIR' {
+        $r = Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root `
+                -PresetConfigDir 'C:\already' -ExplicitProfile 'personal'
+        $r.Source | Should -Be 'explicit-personal'
+    }
 }
