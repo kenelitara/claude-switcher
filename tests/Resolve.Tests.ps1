@@ -66,3 +66,59 @@ Describe 'Resolve-ProfileForCwd' {
         $r.Source | Should -Be 'personal'
     }
 }
+
+Describe 'Resolve-ProfileForCwd with -ExplicitProfile' {
+    BeforeEach {
+        $script:root = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid())
+        $script:cwd  = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid())
+        New-Item -ItemType Directory -Force -Path $script:root, $script:cwd | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $script:root 'work') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $script:root 'client') | Out-Null
+    }
+    AfterEach {
+        if (Test-Path $script:root) { Remove-Item -Recurse -Force $script:root }
+        if (Test-Path $script:cwd)  { Remove-Item -Recurse -Force $script:cwd }
+    }
+
+    It 'returns explicit for a known profile' {
+        $r = Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root -ExplicitProfile 'client'
+        $r.Source     | Should -Be 'explicit'
+        $r.ProfileDir | Should -Be (Join-Path $script:root 'client')
+        $r.Reason     | Should -Match '--profile'
+    }
+
+    It 'throws for an unknown explicit profile' {
+        { Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root -ExplicitProfile 'ghost' } |
+            Should -Throw "*account 'ghost' is not configured*"
+    }
+
+    It 'treats "personal" and "none" as force-personal sentinels' {
+        foreach ($sentinel in @('personal','none')) {
+            $r = Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root -ExplicitProfile $sentinel
+            $r.Source     | Should -Be 'explicit-personal'
+            $r.ProfileDir | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'beats a preset CLAUDE_CONFIG_DIR' {
+        $r = Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root `
+                -PresetConfigDir 'C:\already' -ExplicitProfile 'work'
+        $r.Source     | Should -Be 'explicit'
+        $r.ProfileDir | Should -Be (Join-Path $script:root 'work')
+    }
+
+    It 'beats a claude-account.json naming another profile' {
+        Set-Content -LiteralPath (Join-Path $script:cwd 'claude-account.json') `
+                    -Encoding utf8NoBOM -Value '{ "account": "client" }'
+        $r = Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root -ExplicitProfile 'work'
+        $r.Source     | Should -Be 'explicit'
+        $r.ProfileDir | Should -Be (Join-Path $script:root 'work')
+    }
+
+    It 'still allows forcing personal past a project file' {
+        Set-Content -LiteralPath (Join-Path $script:cwd 'claude-account.json') `
+                    -Encoding utf8NoBOM -Value '{ "account": "work" }'
+        $r = Resolve-ProfileForCwd -Cwd $script:cwd -ProfilesRoot $script:root -ExplicitProfile 'personal'
+        $r.Source | Should -Be 'explicit-personal'
+    }
+}

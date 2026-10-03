@@ -6,8 +6,28 @@ function Resolve-ProfileForCwd {
     param(
         [Parameter(Mandatory)][string]$Cwd,
         [Parameter(Mandatory)][string]$ProfilesRoot,
-        [string]$PresetConfigDir
+        [string]$PresetConfigDir,
+        [string]$ExplicitProfile
     )
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitProfile)) {
+        $name = $ExplicitProfile.Trim()
+        if ($name -in @('personal', 'none')) {
+            return [pscustomobject]@{
+                Source     = 'explicit-personal'
+                ProfileDir = $null
+                Reason     = "personal (~\.claude) — forced by --profile $name"
+            }
+        }
+        if (-not (Test-ProfileExists -ProfilesRoot $ProfilesRoot -Name $name)) {
+            throw "claude-switcher: account '$name' is not configured. Run: claude-switch add $name"
+        }
+        return [pscustomobject]@{
+            Source     = 'explicit'
+            ProfileDir = Get-ProfileDir -ProfilesRoot $ProfilesRoot -Name $name
+            Reason     = "$name — from --profile"
+        }
+    }
 
     if (-not [string]::IsNullOrWhiteSpace($PresetConfigDir)) {
         return [pscustomobject]@{
