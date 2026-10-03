@@ -107,12 +107,14 @@ echo args=%*^|env=%CLAUDE_CONFIG_DIR% > "$($script:probe)"
         Set-Content -LiteralPath (Join-Path $script:cwd 'claude-account.json') `
                     -Encoding utf8NoBOM -Value '{ "account": "work" }'
         $env:CLAUDE_SWITCHER_ROOT = $script:root
+        $env:CLAUDE_CONFIG_DIR = 'C:\custom'
         Push-Location $script:cwd
         try {
             & pwsh -NoProfile -File $script:shim --profile personal
         } finally {
             Pop-Location
             Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
+            Remove-Item env:CLAUDE_CONFIG_DIR    -ErrorAction SilentlyContinue
         }
         $line = (Get-Content -Raw $script:probe).Trim()
         $line | Should -Match 'env=$'
@@ -138,6 +140,7 @@ echo args=%*^|env=%CLAUDE_CONFIG_DIR% > "$($script:probe)"
         Push-Location $script:cwd
         try {
             $out = & pwsh -NoProfile -File $script:shim --profile ghost 2>&1 | Out-String
+            $LASTEXITCODE | Should -Not -Be 0
             $out | Should -Match "account 'ghost' is not configured"
         } finally {
             Pop-Location
@@ -150,6 +153,7 @@ echo args=%*^|env=%CLAUDE_CONFIG_DIR% > "$($script:probe)"
         Push-Location $script:cwd
         try {
             $out = & pwsh -NoProfile -File $script:shim --profile 2>&1 | Out-String
+            $LASTEXITCODE | Should -Not -Be 0
             $out | Should -Match 'requires a profile name'
         } finally {
             Pop-Location
