@@ -6,7 +6,7 @@ function Split-ProfileFlag {
     $profile     = $null
     $seenProfile = $false
 
-    if ($Arguments) {
+    if ($null -ne $Arguments -and $Arguments.Count -gt 0) {
         $i    = 0
         $stop = $false
         while ($i -lt $Arguments.Count) {

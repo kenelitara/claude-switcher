@@ -52,4 +52,22 @@ Describe 'Split-ProfileFlag' {
         $r.Args    | Should -Be @('--resume','prompt text')
         $r.Profile | Should -Be 'work'
     }
+
+    It 'preserves a lone empty-string argument' {
+        $r = Split-ProfileFlag -Arguments @('')
+        $r.Args.Count | Should -Be 1
+        $r.Args[0]    | Should -Be ''
+        $r.Profile    | Should -BeNullOrEmpty
+        $r.Error      | Should -BeNullOrEmpty
+    }
+
+    It 'matches --profile case-insensitively' {
+        $r = Split-ProfileFlag -Arguments @('--PROFILE=work')
+        $r.Profile | Should -Be 'work'
+    }
+
+    It 'trims surrounding whitespace from the profile name' {
+        $r = Split-ProfileFlag -Arguments @('--profile','  work  ')
+        $r.Profile | Should -Be 'work'
+    }
 }
