@@ -69,8 +69,8 @@ process before invoking the real binary. Each non-personal account lives at
 `%USERPROFILE%\.claude-accounts\<name>\`.
 
 If `CLAUDE_CONFIG_DIR` is already set in your environment, the shim prints a
-notice to stderr and forwards the call without modification — escape hatch for
-manual debugging.
+notice to stderr and forwards the call without modification (unless `--profile`
+is passed, which overrides it) — escape hatch for manual debugging.
 
 ## Uninstall
 
