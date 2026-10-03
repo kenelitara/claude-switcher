@@ -87,4 +87,73 @@ echo args=%*^|env=%CLAUDE_CONFIG_DIR% > "$($script:probe)"
         $line = (Get-Content -Raw $script:probe).Trim()
         $line | Should -Match ([regex]::Escape('env=C:\custom'))
     }
+
+    It 'routes --profile to the named profile and strips the flag' {
+        $env:CLAUDE_SWITCHER_ROOT = $script:root
+        Push-Location $script:cwd
+        try {
+            & pwsh -NoProfile -File $script:shim --profile work --resume
+        } finally {
+            Pop-Location
+            Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
+        }
+        $line = (Get-Content -Raw $script:probe).Trim()
+        $line | Should -Match 'args=--resume'
+        $line | Should -Not -Match 'profile'
+        $line | Should -Match ([regex]::Escape("env=$(Join-Path $script:root 'work')"))
+    }
+
+    It 'forces personal with --profile personal even when a project file exists' {
+        Set-Content -LiteralPath (Join-Path $script:cwd 'claude-account.json') `
+                    -Encoding utf8NoBOM -Value '{ "account": "work" }'
+        $env:CLAUDE_SWITCHER_ROOT = $script:root
+        Push-Location $script:cwd
+        try {
+            & pwsh -NoProfile -File $script:shim --profile personal
+        } finally {
+            Pop-Location
+            Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
+        }
+        $line = (Get-Content -Raw $script:probe).Trim()
+        $line | Should -Match 'env=$'
+    }
+
+    It 'lets --profile override a preset CLAUDE_CONFIG_DIR' {
+        $env:CLAUDE_SWITCHER_ROOT = $script:root
+        $env:CLAUDE_CONFIG_DIR = 'C:\custom'
+        Push-Location $script:cwd
+        try {
+            & pwsh -NoProfile -File $script:shim --profile work
+        } finally {
+            Pop-Location
+            Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
+            Remove-Item env:CLAUDE_CONFIG_DIR    -ErrorAction SilentlyContinue
+        }
+        $line = (Get-Content -Raw $script:probe).Trim()
+        $line | Should -Match ([regex]::Escape("env=$(Join-Path $script:root 'work')"))
+    }
+
+    It 'errors on an unknown --profile' {
+        $env:CLAUDE_SWITCHER_ROOT = $script:root
+        Push-Location $script:cwd
+        try {
+            $out = & pwsh -NoProfile -File $script:shim --profile ghost 2>&1 | Out-String
+            $out | Should -Match "account 'ghost' is not configured"
+        } finally {
+            Pop-Location
+            Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'errors when --profile has no value' {
+        $env:CLAUDE_SWITCHER_ROOT = $script:root
+        Push-Location $script:cwd
+        try {
+            $out = & pwsh -NoProfile -File $script:shim --profile 2>&1 | Out-String
+            $out | Should -Match 'requires a profile name'
+        } finally {
+            Pop-Location
+            Remove-Item env:CLAUDE_SWITCHER_ROOT -ErrorAction SilentlyContinue
+        }
+    }
 }
